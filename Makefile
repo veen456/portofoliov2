@@ -6,6 +6,11 @@ LOG_FILE = /tmp/jekyll$(PORT).log
 SHELL = /bin/bash -c
 .SHELLFLAGS = -e
 
+PYTHON ?= python3
+VENV_DIR ?= .venv
+PIP = $(VENV_DIR)/bin/pip
+PYTHON_BIN = $(VENV_DIR)/bin/python
+
 NOTEBOOK_FILES := $(shell find _notebooks -name '*.ipynb')
 DESTINATION_DIRECTORY = _posts
 MARKDOWN_FILES := $(patsubst _notebooks/%.ipynb,$(DESTINATION_DIRECTORY)/%_IPYNB_2_.md,$(NOTEBOOK_FILES))
@@ -147,15 +152,20 @@ serve: serve-current
 build: build-current
 
 # Notebook and DOCX conversion
-convert: $(MARKDOWN_FILES) convert-docx
+env:
+	@if [ ! -d "$(VENV_DIR)" ]; then $(PYTHON) -m venv $(VENV_DIR); fi
+	@$(PIP) install -q --upgrade pip
+	@$(PIP) install -q -r requirements.txt
+
+convert: env $(MARKDOWN_FILES) convert-docx
 $(DESTINATION_DIRECTORY)/%_IPYNB_2_.md: _notebooks/%.ipynb
 	@mkdir -p $(@D)
-	@python3 -c "from scripts.convert_notebooks import convert_notebooks; convert_notebooks()"
+	@$(PYTHON_BIN) -c "from scripts.convert_notebooks import convert_notebooks; convert_notebooks()"
 
 # DOCX conversion
 convert-docx:
 	@if [ -d "_docx" ] && [ "$(shell ls -A _docx 2>/dev/null)" ]; then \
-		python3 scripts/convert_docx.py; \
+		$(PYTHON_BIN) scripts/convert_docx.py; \
 	else \
 		echo "No DOCX files found in _docx directory"; \
 	fi
@@ -165,9 +175,9 @@ convert-docx-config:
 	@if [ -d "_docx" ] && [ "$(shell ls -A _docx 2>/dev/null)" ]; then \
 		if [ -n "$(CONFIG_FILE)" ]; then \
 			echo "🔧 Config file changed: $(CONFIG_FILE)"; \
-			python3 scripts/convert_docx.py --config-changed "$(CONFIG_FILE)"; \
+			$(PYTHON_BIN) scripts/convert_docx.py --config-changed "$(CONFIG_FILE)"; \
 		else \
-			python3 scripts/convert_docx.py; \
+			$(PYTHON_BIN) scripts/convert_docx.py; \
 		fi; \
 	else \
 		echo "No DOCX files found in _docx directory"; \
